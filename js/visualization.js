@@ -10,15 +10,16 @@ jQuery(document).ready( function(){
         .attr("height", height);
 
     var dropdownData = [
-        { NAME: "Insured unemployment rate", DATA: "INSURED_UNEMPLOYMENT_RATE" },
         { NAME: "Change in average spending (% vs. prev. mo.)", DATA: "AVG_CURRENT_AR_DELTA_MO" },
         { NAME: "Spending (avg current balance)", DATA: "AVG_CURRENT_AR" },
         { NAME: "Payment speed – days beyond terms (DBT)", DATA: "AVG_DBT" },
         { NAME: "Payment speed – Cortera Payment Rating (CPR)", DATA: "AVG_CPR" },
         { NAME: "Late balances (%30+)", DATA: "AVG_PCT_LATE" },
-        { NAME: "Unemployment claims – initial filings", DATA: "INITIAL_CLAIMS" }
+        { NAME: "Unemployment claims – initial filings", DATA: "INITIAL_CLAIMS" },
+        { NAME: "Insured unemployment rate", DATA: "INSURED_UNEMPLOYMENT_RATE" },
     ];
     
+    // Pulling in state name data
     d3.tsv("https://s3-us-west-2.amazonaws.com/vida-public/geo/us-state-names.tsv", function(error, names) {
     
         codesToNames = {};
@@ -26,20 +27,25 @@ jQuery(document).ready( function(){
         idsToCodes = {};
         
         for (var i = 0; i < names.length; i++) {
+            // name is actual name
+            // code is two-letter abbreviation for state
+            // id is the integer id for the state
             codesToNames[names[i].code] = names[i].name;
             namesToCodes[names[i].name] = names[i].code;
-            idsToCodes[names[i].id] = names[i].code; // id is an int; code is a two-letter abbreviation
+            idsToCodes[names[i].id] = names[i].code;
         }
         
+        // Pulling in coordinates needed to draw the map
         d3.json("/wp-content/plugins/visualization/js/us.json", function(error, us) {
             if (error) throw error;
           
-            // this part makes the full map
+            // This makes the full map
             svg.append("path")
                 .datum(topojson.feature(us, us.objects.land).features)
                 .attr("class", "land")
                 .attr("d", path);
         
+            // Appending the dropdown onto the screen
             var dropDown = d3.select(".dropdown")
                 .append("select")
                 .attr("class", "parameters")
@@ -49,12 +55,10 @@ jQuery(document).ready( function(){
                     var dropDownValue = selectedIndexObj.value;
                     getData(dropDownValue, svg, us, path);
                 });
-
             var options = dropDown.selectAll("option")
             .data(dropdownData)
             .enter()
             .append("option");
-            
             options.text(function(d) {
                 return d.NAME;
             })
@@ -62,14 +66,14 @@ jQuery(document).ready( function(){
                 return d.DATA;
             })
             
-			//Moves selction to front
+			// Used to move mouseover'd state to front, preventing the lines from not highlighting properly
 			d3.selection.prototype.moveToFront = function() {
 				return this.each(function() {
 					this.parentNode.appendChild(this);
 				});
 			};
 
-			//Moves selction to back
+			// Used to move mouseoff'd state to back
 			d3.selection.prototype.moveToBack = function() {
 				return this.each(function() {
 					var firstChild = this.parentNode.firstChild;
@@ -79,7 +83,9 @@ jQuery(document).ready( function(){
 				});
             };
 
-            getData("INSURED_UNEMPLOYMENT_RATE", svg, us, path);
+            // Loads initial data set into visualization, based off 
+            // whatever is the top option in the dropdown (the default)
+            getData(dropdownData[0]['DATA'], svg, us);
         });
     });
 });
@@ -88,7 +94,7 @@ jQuery(document).ready( function(){
 * Puts together an AJAX request to get the data, calls the API, 
 * and if successful calls the function to set the visualization's data.
 */
-function getData(dropDownValue, svg, us, path) {
+function getData(dropDownValue, svg, us) {
     jQuery.ajax({
         url : getstates_ajax.ajax_url,
         type : "post",
@@ -98,7 +104,7 @@ function getData(dropDownValue, svg, us, path) {
         },
         success : function( response ) {
             var cleanedUpResponse = response.replace("Array","").replace("\"}]0","\"}]");
-            setVisualizationData(JSON.parse(cleanedUpResponse), svg, us, path, dropDownValue)
+            setVisualizationData(JSON.parse(cleanedUpResponse), svg, us, dropDownValue)
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { 
             // TODO
@@ -126,7 +132,7 @@ function getColorScheme(dropDownValue, largestValueInDataSet) {
 /*
 * Sets the visualization's data and color scale.
 */
-function setVisualizationData(responseData, svg, us, path, dropDownValue) {
+function setVisualizationData(responseData, svg, us, dropDownValue) {
     var stateCodesToData = [];
     responseData.forEach(state => stateCodesToData[state["STATE"]] = state);  
     
@@ -136,24 +142,30 @@ function setVisualizationData(responseData, svg, us, path, dropDownValue) {
         var stateCode = idsToCodes[d.id];
         d.info = stateCodesToData[stateCode]
         d.name = codesToNames[stateCode]
+        // Need to do this this way instead of just sorting the DB query by descending value
+        // and picking the first item's value because of the extra, non-US data in the set.
+        // Inside this foreach, we're only looking at US states.
         if (d.info.STATE_AVG > largestValueInDataSet) {
             largestValueInDataSet = d.info.STATE_AVG;
         }
     });
     
+    // Creating the color scale and color scale function for the map
     var colorDomainAndRange = getColorScheme(dropDownValue, largestValueInDataSet);
     var color = d3.scale.threshold()
     .domain(colorDomainAndRange[0])
     .range(colorDomainAndRange[1]);
 
-
     var states = svg.selectAll(".state")
         .data(all_states)
+
+    var path = d3.geo.path();
 
     states.enter().append("path")
         .attr("class", "state")
         .attr("d", path)
         .style("fill", function(d) {
+            // Color the state based on its value and how it fits into the scale
             return color(d.info.STATE_AVG);
         })
         .on("mouseover", function(d) {
@@ -204,9 +216,11 @@ function setVisualizationData(responseData, svg, us, path, dropDownValue) {
             jQuery("#tooltip-container").hide();
         });
 
+    // When you change data sets via the dropdown
     states.transition()
         .duration(500)
         .style("fill", function(d) {
+            // Color the state based on its value and how it fits into the scale
             return color(d.info.STATE_AVG);
         })
 }
