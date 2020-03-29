@@ -20,7 +20,16 @@ path {
 }
 
 .parameters {
-    width: 33%;
+    width: 50%;
+}
+
+#tooltip-container {
+  position: absolute;
+  background-color: #e5e5e5;
+  color: #000000;
+  padding: 10px;
+  border: none;
+  display: none;
 }
 
 div.tooltip {

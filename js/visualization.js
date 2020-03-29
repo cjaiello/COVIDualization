@@ -1,5 +1,4 @@
-jQuery(document).ready( function(){
-
+jQuery(document).ready( function() {
     var width = 900;
     var height = 500;
         
@@ -10,8 +9,9 @@ jQuery(document).ready( function(){
         .attr("height", height);
 
     var dropdownData = [
-        { NAME: "Change in average spending (% vs. prev. mo.)", DATA: "AVG_CURRENT_AR_DELTA_MO" },
         { NAME: "Spending (avg current balance)", DATA: "AVG_CURRENT_AR" },
+        { NAME: "Change in average spending (% vs. prev. month)", DATA: "AVG_CURRENT_AR_DELTA_MO" },
+        { NAME: "Change in average spending (% vs. prev. week)", DATA: "AVG_CURRENT_AR_DELTA_WK" },
         { NAME: "Payment speed – days beyond terms (DBT)", DATA: "AVG_DBT" },
         { NAME: "Payment speed – Cortera Payment Rating (CPR)", DATA: "AVG_CPR" },
         { NAME: "Late balances (%30+)", DATA: "AVG_PCT_LATE" },
@@ -36,12 +36,12 @@ jQuery(document).ready( function(){
         }
         
         // Pulling in coordinates needed to draw the map
-        d3.json("/wp-content/plugins/visualization/js/us.json", function(error, us) {
+        d3.json("/wp-content/plugins/visualization/json/us.json", function(error, jsonUnitedStatesCoordinates) {
             if (error) throw error;
           
-            // This makes the full map
+            // This makes the initial map
             svg.append("path")
-                .datum(topojson.feature(us, us.objects.land).features)
+                .datum(topojson.feature(jsonUnitedStatesCoordinates, jsonUnitedStatesCoordinates.objects.land).features)
                 .attr("class", "land")
                 .attr("d", path);
         
@@ -53,7 +53,7 @@ jQuery(document).ready( function(){
                     var selectedIndexInt = eval(d3.select(this).property("selectedIndex"));
                     var selectedIndexObj = dropDown.property("options")[selectedIndexInt];
                     var dropDownValue = selectedIndexObj.value;
-                    getData(dropDownValue, svg, us, path);
+                    getData(dropDownValue, svg, jsonUnitedStatesCoordinates, path);
                 });
             var options = dropDown.selectAll("option")
             .data(dropdownData)
@@ -85,7 +85,7 @@ jQuery(document).ready( function(){
 
             // Loads initial data set into visualization, based off 
             // whatever is the top option in the dropdown (the default)
-            getData(dropdownData[0]['DATA'], svg, us);
+            getData(dropdownData[0]['DATA'], svg, jsonUnitedStatesCoordinates);
         });
     });
 });
@@ -94,7 +94,7 @@ jQuery(document).ready( function(){
 * Puts together an AJAX request to get the data, calls the API, 
 * and if successful calls the function to set the visualization's data.
 */
-function getData(dropDownValue, svg, us) {
+function getData(dropDownValue, svg, jsonUnitedStatesCoordinates) {
     jQuery.ajax({
         url : getstates_ajax.ajax_url,
         type : "post",
@@ -104,7 +104,7 @@ function getData(dropDownValue, svg, us) {
         },
         success : function( response ) {
             var cleanedUpResponse = response.replace("Array","").replace("\"}]0","\"}]");
-            setVisualizationData(JSON.parse(cleanedUpResponse), svg, us, dropDownValue)
+            setVisualizationData(JSON.parse(cleanedUpResponse), svg, jsonUnitedStatesCoordinates, dropDownValue)
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { 
             // TODO
@@ -118,6 +118,7 @@ function getData(dropDownValue, svg, us) {
 function getColorScheme(dropDownValue, largestValueInDataSet) {
     var colorMap = {
         "AVG_CURRENT_AR_DELTA_MO": getGreenAndRedColors(largestValueInDataSet),
+        "AVG_CURRENT_AR_DELTA_WK": getGreenAndRedColors(largestValueInDataSet),
         "AVG_CURRENT_AR": getGreenColors(largestValueInDataSet),
         "AVG_DBT": getRedColors(largestValueInDataSet),
         "AVG_CPR": getRedColors(largestValueInDataSet),
@@ -125,19 +126,25 @@ function getColorScheme(dropDownValue, largestValueInDataSet) {
         "INITIAL_CLAIMS": getBlueColors(largestValueInDataSet),
         "INSURED_UNEMPLOYMENT_RATE": getBlueColors(largestValueInDataSet)
     };
-    var colors = colorMap[dropDownValue];
-    return colors;
+    return colorMap[dropDownValue];
 }
 
 /*
 * Sets the visualization's data and color scale.
 */
-function setVisualizationData(responseData, svg, us, dropDownValue) {
+function setVisualizationData(responseData, svg, jsonUnitedStatesCoordinates, dropDownValue) {
+    // Clear whatever the previous data was, to start fresh with a new data set.
+    // [] is just an empty data set; this lets us clear all the data.
+    svg.selectAll(".state")
+    .data([])
+    .exit()
+    .remove()
+
     var stateCodesToData = [];
     responseData.forEach(state => stateCodesToData[state["STATE"]] = state);  
     
     var largestValueInDataSet = 0;
-    var all_states = topojson.feature(us, us.objects.states).features;
+    var all_states = topojson.feature(jsonUnitedStatesCoordinates, jsonUnitedStatesCoordinates.objects.states).features;
     all_states.forEach(function(d){
         var stateCode = idsToCodes[d.id];
         d.info = stateCodesToData[stateCode]
@@ -150,7 +157,7 @@ function setVisualizationData(responseData, svg, us, dropDownValue) {
         }
     });
     
-    // Creating the color scale and color scale function for the map
+    // Creating the color scale values and color scale function for the map
     var colorDomainAndRange = getColorScheme(dropDownValue, largestValueInDataSet);
     var color = d3.scale.threshold()
     .domain(colorDomainAndRange[0])
@@ -177,20 +184,31 @@ function setVisualizationData(responseData, svg, us, dropDownValue) {
                 "stroke-width": 1.5
             });
 
-            var html = "";
-  
-            html += "<div class=\"tooltip_kv\">";
-            html += "<span class=\"tooltip_key\">";
-            html += d.info.STATE;
-            html += "</span>";
-            html += " <span class=\"tooltip_value\"> ";
-            html += d.info.STATE_AVG;
-            html += "";
-            html += "</span>";
-            html += "</div>";
+            var html = `<div class=\"tooltip_kv\"><span class=\"tooltip_key\">${d.name}</span><span class=\"tooltip_value\"> ${d.info.STATE_AVG} </span></div>`;
+
+            var tooltipContainer = jQuery("#tooltip-container");
             
-            jQuery("#tooltip-container").html(html);
-            jQuery("#tooltip-container").show();
+            tooltipContainer.html(html);
+
+            var innerSvg = d3.select("#tooltip-container")
+                .append("svg")
+                .attr("width", 3000)
+                .attr("height", 3000);
+
+            d3.json("/wp-content/plugins/visualization/json/fl-counties.json", function(error, countiesJson) {
+                var projection = d3.geo.albersUsa().scale(8500).translate([0, -1200]);
+                    
+                var geoPath = d3.geo.path().projection(projection);
+
+                innerSvg.append("g")
+                    .selectAll("path")
+                    .data(countiesJson.features)
+                    .enter()
+                    .append("path")
+                    .attr("style", "fill: rgb(18, 89, 55)")
+                    .attr("d", geoPath)
+            });
+            tooltipContainer.show();
                         
             var map_width = jQuery('.visualization')[0].getBoundingClientRect().width;
             
@@ -199,7 +217,7 @@ function setVisualizationData(responseData, svg, us, dropDownValue) {
                 .style("top", (d3.event.layerY + 15) + "px")
                 .style("left", (d3.event.layerX + 15) + "px");
             } else {
-              var tooltip_width = jQuery("#tooltip-container").width();
+              var tooltip_width = tooltipContainer.width();
               d3.select("#tooltip-container")
                 .style("top", (d3.event.layerY + 15) + "px")
                 .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
@@ -215,14 +233,6 @@ function setVisualizationData(responseData, svg, us, dropDownValue) {
             });
             jQuery("#tooltip-container").hide();
         });
-
-    // When you change data sets via the dropdown
-    states.transition()
-        .duration(500)
-        .style("fill", function(d) {
-            // Color the state based on its value and how it fits into the scale
-            return color(d.info.STATE_AVG);
-        })
 }
 
 /*
@@ -242,7 +252,23 @@ function getGreenColors(largestValueInDataSet) {
         .9*largestValueInDataSet, 
         1*largestValueInDataSet
     ]
-    var colorRange = ["#fcfcfc", "#d0d6cd", "#bdc9be", "#aabdaf", "#97b0a0", "#84a491", "#719782", "#5e8b73", "#4b7e64", "#387255", "#256546", "#125937", "#004d28", "#004524", "#003e20"];
+    var colorRange = [
+        "#fcfcfc",
+        "#d0d6cd",
+        "#bdc9be",
+        "#aabdaf",
+        "#97b0a0",
+        "#84a491",
+        "#719782",
+        "#5e8b73",
+        "#4b7e64",
+        "#387255",
+        "#256546",
+        "#125937",
+        "#004d28",
+        "#004524",
+        "#003e20"
+    ];
     return [colorDomain, colorRange];
 }
 
@@ -263,7 +289,20 @@ function getRedColors(largestValueInDataSet) {
         .9*largestValueInDataSet, 
         1*largestValueInDataSet
     ]
-    var colorRange = ["#fcfcfc", "#ffe5e5", "#ffcccc", "#ffb2b2", "#ff9999", "#ff7f7f", "#ff6666", "#ff4c4c", "#ff3232", "#ff1919", "#e51616", "#ce1313"];
+    var colorRange = [
+        "#fcfcfc",
+        "#ffe5e5",
+        "#ffcccc",
+        "#ffb2b2",
+        "#ff9999",
+        "#ff7f7f",
+        "#ff6666",
+        "#ff4c4c",
+        "#ff3232",
+        "#ff1919",
+        "#e51616",
+        "#ce1313"
+    ];
     return [colorDomain, colorRange];
 }
 
@@ -284,7 +323,20 @@ function getBlueColors(largestValueInDataSet) {
         .9*largestValueInDataSet, 
         1*largestValueInDataSet
     ]
-    var colorRange = ["#fcfcfc", "#ebecf3", "#d8d9e7", "#c4c6dc", "#b1b4d0", "#9ea1c5", "#8a8eb9", "#777cad", "#6369a2", "#505696", "#484d87", "#404579"];
+    var colorRange = [
+        "#fcfcfc",
+        "#ebecf3",
+        "#d8d9e7",
+        "#c4c6dc",
+        "#b1b4d0",
+        "#9ea1c5",
+        "#8a8eb9",
+        "#777cad",
+        "#6369a2",
+        "#505696",
+        "#484d87",
+        "#404579"
+    ];
     return [colorDomain, colorRange];
 }
 
@@ -315,6 +367,30 @@ function getGreenAndRedColors(largestValueInDataSet) {
         .9*largestValueInDataSet, 
         1*largestValueInDataSet
     ]
-    var colorRange = ["#fcfcfc", "#ff1919", "#ff3232", "#ff4c4c", "#ff6666", "#ff7f7f", "#ff9999", "#ffb2b2", "#ffcccc", "#ffe5e5", "#d0d6cd", "#bdc9be", "#aabdaf", "#97b0a0", "#84a491", "#719782", "#5e8b73", "#4b7e64", "#387255", "#256546", "#125937", "#004d28", "#004524"];
+    var colorRange = [
+        "#fcfcfc",
+        "#ff1919",
+        "#ff3232",
+        "#ff4c4c",
+        "#ff6666",
+        "#ff7f7f",
+        "#ff9999",
+        "#ffb2b2",
+        "#ffcccc",
+        "#ffe5e5",
+        "#d0d6cd",
+        "#bdc9be",
+        "#aabdaf",
+        "#97b0a0",
+        "#84a491",
+        "#719782",
+        "#5e8b73",
+        "#4b7e64",
+        "#387255",
+        "#256546",
+        "#125937",
+        "#004d28",
+        "#004524"
+    ];
     return [colorDomain, colorRange];
 }

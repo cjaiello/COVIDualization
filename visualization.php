@@ -51,7 +51,7 @@
             // If you want it to show somewhere else, instead of $content .= ' you'll want to 
             // drop a <div> into the post with a specific classname and append this to the classname.
             if ( $post->post_name == 'test' ) {
-                $content .= '<div class="dropdown"></div><div class="visualization"></div><div id="tooltip-container"></div>';
+                $content .= '<div class="dropdown"></div><div id="tooltip-container"></div><div class="visualization"></div>';
             }
             return $content;
         }
@@ -101,6 +101,7 @@
             $dropDownValuesToTableNames = [
                 "AVG_CURRENT_AR" => CORONA_COUNTY_WEEKLY,
                 "AVG_CURRENT_AR_DELTA_MO" => CORONA_COUNTY_WEEKLY,
+                "AVG_CURRENT_AR_DELTA_WK" => CORONA_COUNTY_WEEKLY,
                 "AVG_DBT" => CORONA_COUNTY_WEEKLY,
                 "AVG_CPR" => CORONA_COUNTY_WEEKLY,
                 "AVG_PCT_LATE" => CORONA_COUNTY_WEEKLY,
