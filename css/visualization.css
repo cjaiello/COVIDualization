@@ -1,0 +1,42 @@
+path {
+    stroke: white;
+    stroke-width: 1px;
+}
+
+.county {
+    font: 14px sans-serif;
+    font-weight: bold;
+}
+
+.legend {
+    font-size: 14px;
+    font-family: 'Proxima Nova', sans-serif;
+}
+
+.legend_title {
+    font-size: 14px;
+    font-family: 'Proxima Nova', sans-serif;
+    font-weight: bold;
+}
+
+.parameters {
+    width: 33%;
+}
+
+div.tooltip {
+    position: absolute;
+    left: 75px;
+    text-align: center;
+    height: 16px;
+    padding: 10px;
+    font-size: 14px;
+    background: #FFFFFF;
+    border: 1px solid #989898;
+    pointer-events: none;
+}
+
+@media (max-width: 400px) {
+    .d3map {
+        display: none;
+    }
+}
