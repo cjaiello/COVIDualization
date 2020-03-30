@@ -1,12 +1,11 @@
 jQuery(document).ready( function() {
     var width = 900;
     var height = 500;
-        
-    var path = d3.geo.path();
     
     var svg = d3.select(".visualization").append("svg")
         .attr("width", width)
-        .attr("height", height);
+        .attr("height", height)
+        .attr("class", "map_svg");
 
     var dropdownData = [
         { NAME: "Spending (avg current balance)", DATA: "AVG_CURRENT_AR" },
@@ -38,10 +37,13 @@ jQuery(document).ready( function() {
         // Pulling in coordinates needed to draw the map
         d3.json("/wp-content/plugins/visualization/json/us.json", function(error, jsonUnitedStatesCoordinates) {
             if (error) throw error;
+        
+            var path = d3.geo.path();
+            getNAICS(jsonUnitedStatesCoordinates, path);
           
             // This makes the initial map
             svg.append("path")
-                .datum(topojson.feature(jsonUnitedStatesCoordinates, jsonUnitedStatesCoordinates.objects.land).features)
+            .datum(topojson.feature(jsonUnitedStatesCoordinates, jsonUnitedStatesCoordinates.objects.land).features)
                 .attr("class", "land")
                 .attr("d", path);
         
@@ -52,8 +54,9 @@ jQuery(document).ready( function() {
                 .on("change", function() {
                     var selectedIndexInt = eval(d3.select(this).property("selectedIndex"));
                     var selectedIndexObj = dropDown.property("options")[selectedIndexInt];
-                    var dropDownValue = selectedIndexObj.value;
-                    getData(dropDownValue, svg, jsonUnitedStatesCoordinates, path);
+                    var dataDropDownValue = selectedIndexObj.value;
+                    var naicsDropDownValue = jQuery("#tooltip-container").val() || null;
+                    getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownValue, path);
                 });
             var options = dropDown.selectAll("option")
             .data(dropdownData)
@@ -85,7 +88,7 @@ jQuery(document).ready( function() {
 
             // Loads initial data set into visualization, based off 
             // whatever is the top option in the dropdown (the default)
-            getData(dropdownData[0]['DATA'], svg, jsonUnitedStatesCoordinates);
+            getData(jsonUnitedStatesCoordinates, dropdownData[0]['DATA'], null, path);
         });
     });
 });
@@ -94,23 +97,78 @@ jQuery(document).ready( function() {
 * Puts together an AJAX request to get the data, calls the API, 
 * and if successful calls the function to set the visualization's data.
 */
-function getData(dropDownValue, svg, jsonUnitedStatesCoordinates) {
+function getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownValue, path) {
     jQuery.ajax({
         url : getstates_ajax.ajax_url,
         type : "post",
         data : {
             action : "get_state_data",
-            selected : dropDownValue
+            selectedDropDownValue : dataDropDownValue,
+            selectedIndustry : naicsDropDownValue
         },
         success : function( response ) {
             var cleanedUpResponse = response.replace("Array","").replace("\"}]0","\"}]");
-            setVisualizationData(JSON.parse(cleanedUpResponse), svg, jsonUnitedStatesCoordinates, dropDownValue)
+            setVisualizationData(JSON.parse(cleanedUpResponse), jsonUnitedStatesCoordinates, path)
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { 
             // TODO
         }
     });
 }
+
+/*
+* Puts together an AJAX request to get the data, calls the API
+*/
+function getNAICS(jsonUnitedStatesCoordinates, path) {
+    jQuery.ajax({
+        url : getNAICS_ajax.ajax_url,
+        type : "get",
+        data : {
+            action : "get_industry_data"
+        },
+        success : function( response ) {
+            var naics = response.replace("Array","").replace("\"}]0","\"}]");
+            var naicsParsed = JSON.parse(naics);
+            var defaultValue = [{
+                NAICS: 0, // Dummy value
+                NAICS_TYPE: null,
+                NAICS_DESC: "Industry selection (choose one)"
+            }];
+            setNAICSData(defaultValue.concat(naicsParsed), jsonUnitedStatesCoordinates, path);
+        },
+        error: function(XMLHttpRequest, textStatus, errorThrown) { 
+            // TODO
+        }
+    });
+}
+
+function setNAICSData(naicsData, jsonUnitedStatesCoordinates, path) {
+    var dropDown = d3.select(".naics-dropdown")
+        .append("select")
+        .attr("class", "parameters")
+        .on("change", function() {
+            var selectedIndexInt = eval(d3.select(this).property("selectedIndex"));
+            var selectedIndexObj = dropDown.property("options")[selectedIndexInt];
+            var naicsDropDownValue = selectedIndexObj.value != 0 ? selectedIndexObj.value : null;
+            var dataDropDownValue = jQuery(".dropdown option:selected").val();
+            getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownValue, path);
+        });
+    var options = dropDown.selectAll("option")
+        .data(naicsData)
+        .enter()
+        .append("option");
+        options.text(function(d) {
+            if (d.NAICS) {
+                return `${d.NAICS} - ${d.NAICS_DESC}`;
+            } else {
+                return `${d.NAICS_DESC}`;
+            }
+        })
+        options.attr("value", function(d) {
+            return d.NAICS;
+        })
+}
+
 
 /*
 * Based on the dropdown value, gets a particular color scheme for the map data
@@ -132,9 +190,11 @@ function getColorScheme(dropDownValue, largestValueInDataSet) {
 /*
 * Sets the visualization's data and color scale.
 */
-function setVisualizationData(responseData, svg, jsonUnitedStatesCoordinates, dropDownValue) {
+function setVisualizationData(responseData, jsonUnitedStatesCoordinates, path) {
     // Clear whatever the previous data was, to start fresh with a new data set.
     // [] is just an empty data set; this lets us clear all the data.
+    var svg = d3.select(".map_svg");
+
     svg.selectAll(".state")
     .data([])
     .exit()
@@ -152,13 +212,16 @@ function setVisualizationData(responseData, svg, jsonUnitedStatesCoordinates, dr
         // Need to do this this way instead of just sorting the DB query by descending value
         // and picking the first item's value because of the extra, non-US data in the set.
         // Inside this foreach, we're only looking at US states.
-        if (d.info.STATE_AVG > largestValueInDataSet) {
+        if (d.info != null && d.info.STATE_AVG > largestValueInDataSet) {
             largestValueInDataSet = d.info.STATE_AVG;
         }
     });
+
+    var dropDown = jQuery(".dropdown option:selected").val();
+    var selectedMetricDropDownValue = dropDown || "AVG_CURRENT_AR";
     
     // Creating the color scale values and color scale function for the map
-    var colorDomainAndRange = getColorScheme(dropDownValue, largestValueInDataSet);
+    var colorDomainAndRange = getColorScheme(selectedMetricDropDownValue, largestValueInDataSet);
     var color = d3.scale.threshold()
     .domain(colorDomainAndRange[0])
     .range(colorDomainAndRange[1]);
@@ -166,14 +229,17 @@ function setVisualizationData(responseData, svg, jsonUnitedStatesCoordinates, dr
     var states = svg.selectAll(".state")
         .data(all_states)
 
-    var path = d3.geo.path();
-
     states.enter().append("path")
         .attr("class", "state")
         .attr("d", path)
         .style("fill", function(d) {
             // Color the state based on its value and how it fits into the scale
-            return color(d.info.STATE_AVG);
+            if (d.info) {
+                return color(d.info.STATE_AVG);
+            } else {
+                // If we don't have data on this state, color it white.
+                return "#ffffff";
+            }
         })
         .on("mouseover", function(d) {
             var sel = d3.select(this);
@@ -186,42 +252,61 @@ function setVisualizationData(responseData, svg, jsonUnitedStatesCoordinates, dr
 
             var html = `<div class=\"tooltip_kv\"><span class=\"tooltip_key\">${d.name}</span><span class=\"tooltip_value\"> ${d.info.STATE_AVG} </span></div>`;
 
-            var tooltipContainer = jQuery("#tooltip-container");
+            var tooltipContainer = jQuery("#tooltip-container")
+            .attr("width", 400)
+            .attr("height", 400);
             
             tooltipContainer.html(html);
 
             var innerSvg = d3.select("#tooltip-container")
                 .append("svg")
-                .attr("width", 3000)
-                .attr("height", 3000);
+                .attr("width", 1500)
+                .attr("height", 1500);
 
-            d3.json("/wp-content/plugins/visualization/json/fl-counties.json", function(error, countiesJson) {
-                var projection = d3.geo.albersUsa().scale(8500).translate([0, -1200]);
+            d3.json(`/wp-content/plugins/visualization/json/${d.info.STATE.toLowerCase()}-counties.json`, function(error, countiesJson) {
                     
-                var geoPath = d3.geo.path().projection(projection);
+                // var projection = d3.geo.mercator();
+                // var geoPath = d3.geo.path().projection(projection);
+                // innerSvg.append("g")
+                //     .selectAll("path")
+                //     .data(countiesJson.features)
+                //     .enter()
+                //     .append("path")
+                //     .attr("style", "fill: rgb(18, 89, 55)")
+                //     .attr("d", geoPath)
 
-                innerSvg.append("g")
-                    .selectAll("path")
+                var group = innerSvg.selectAll("g")
                     .data(countiesJson.features)
                     .enter()
-                    .append("path")
-                    .attr("style", "fill: rgb(18, 89, 55)")
-                    .attr("d", geoPath)
+                    .append("g")
+                    .attr("transform", "translate(-2000, -800), scale(8)")
+
+                var projection = d3.geo.mercator();
+
+                var path = d3.geo.path().projection(projection);
+                
+                var areas = group.append("path")
+                    .attr("d", path) //data comes from path generator
+                    .attr("class", "area") //CSS
+                    .attr("fill", "steelblue")
+
+
             });
             tooltipContainer.show();
                         
             var map_width = jQuery('.visualization')[0].getBoundingClientRect().width;
             
-            if (d3.event.layerX < map_width / 2) {
-              d3.select("#tooltip-container")
-                .style("top", (d3.event.layerY + 15) + "px")
-                .style("left", (d3.event.layerX + 15) + "px");
-            } else {
-              var tooltip_width = tooltipContainer.width();
-              d3.select("#tooltip-container")
-                .style("top", (d3.event.layerY + 15) + "px")
-                .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
-            }
+            // Below is for tooltip positioning. Also need position: absolute in the css on the tooltip-container
+            // if (d3.event.layerX < map_width / 2) {
+            //   d3.select("#tooltip-container")
+            //     .style("top", (d3.event.layerY + 15) + "px")
+            //     .style("left", (d3.event.layerX + 15) + "px");
+            // } else {
+            //   var tooltip_width = tooltipContainer.width();
+            //   d3.select("#tooltip-container")
+            //     .style("top", (d3.event.layerY + 15) + "px")
+            //     .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
+            // }
         })
         .on("mouseout", function() {
             var sel = d3.select(this);

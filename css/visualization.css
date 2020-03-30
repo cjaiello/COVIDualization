@@ -24,7 +24,6 @@ path {
 }
 
 #tooltip-container {
-  position: absolute;
   background-color: #e5e5e5;
   color: #000000;
   padding: 10px;

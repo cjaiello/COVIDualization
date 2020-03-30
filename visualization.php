@@ -30,6 +30,7 @@
             add_action( 'plugins_loaded', array( $this, 'enqueue_rml_scripts' ) );
             add_action( 'plugins_loaded', array( $this, 'enqueue_rml_styles' ) );
             add_action( 'wp_ajax_nopriv_get_state_data', array( $this, 'get_states' ) );
+            add_action( 'wp_ajax_nopriv_get_industry_data', array( $this, 'get_industries' ) );
             add_filter( 'the_content', array( $this, 'display_visualization') );
         }  
         
@@ -51,7 +52,7 @@
             // If you want it to show somewhere else, instead of $content .= ' you'll want to 
             // drop a <div> into the post with a specific classname and append this to the classname.
             if ( $post->post_name == 'test' ) {
-                $content .= '<div class="dropdown"></div><div id="tooltip-container"></div><div class="visualization"></div>';
+                $content .= '<div class="dropdown"></div><div class="naics-dropdown"></div><div class="visualization"></div><div id="tooltip-container"></div>';
             }
             return $content;
         }
@@ -75,6 +76,7 @@
             wp_enqueue_script( 'topojson', 'https://d3js.org/topojson.v1.min.js', array('jquery'), null, true );
             wp_enqueue_script('get-states-script', plugins_url( 'js/visualization.js', __FILE__ ), array('jquery'));
             wp_localize_script( 'get-states-script', 'getstates_ajax', array( 'ajax_url' => admin_url('admin-ajax.php'))); 
+            wp_localize_script( 'get-states-script', 'getNAICS_ajax', array( 'ajax_url' => admin_url('admin-ajax.php'))); 
         } 
 
         /**
@@ -91,32 +93,65 @@
         * $_POST[KEY OF VALUE PASSED OVER HERE] in the function to get info from the POST
         */
         public function get_states() {
-            $selectedDropDownValue = $_POST['selected'];
+            $selectedDropDownValue = $_POST['selectedDropDownValue'];
+            $selectedIndustry = $_POST['selectedIndustry'];
 
             // Table names
             $CORONA_COUNTY_WEEKLY = "CORONA_COUNTY_WEEKLY";
             $CORONA_UNEMPLOYMENT_ALL = "CORONA_UNEMPLOYMENT_ALL";
-
-            // Map telling us which table contains which column of data
-            $dropDownValuesToTableNames = [
-                "AVG_CURRENT_AR" => CORONA_COUNTY_WEEKLY,
-                "AVG_CURRENT_AR_DELTA_MO" => CORONA_COUNTY_WEEKLY,
-                "AVG_CURRENT_AR_DELTA_WK" => CORONA_COUNTY_WEEKLY,
-                "AVG_DBT" => CORONA_COUNTY_WEEKLY,
-                "AVG_CPR" => CORONA_COUNTY_WEEKLY,
-                "AVG_PCT_LATE" => CORONA_COUNTY_WEEKLY,
-                "INITIAL_CLAIMS" => CORONA_UNEMPLOYMENT_ALL,
-                "INSURED_UNEMPLOYMENT_RATE" => CORONA_UNEMPLOYMENT_ALL
-            ];
-
-            // Getting the correct table to pull the data from
-            $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
+            $CORONA_NAICS3_WEEKLY = "CORONA_NAICS3_WEEKLY";
 
             // Lets us hit the WordPress database
             global $wpdb;
-            $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' GROUP BY STATE ORDER BY STATE');
+            if ($selectedIndustry != null) {
+
+                // Map telling us which table contains which column of data
+                $dropDownValuesToTableNames = [
+                    "AVG_CURRENT_AR" => CORONA_NAICS3_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_MO" => CORONA_NAICS3_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_WK" => CORONA_NAICS3_WEEKLY,
+                    "AVG_DBT" => CORONA_NAICS3_WEEKLY,
+                    "AVG_CPR" => CORONA_NAICS3_WEEKLY,
+                    "AVG_PCT_LATE" => CORONA_NAICS3_WEEKLY,
+                    "INITIAL_CLAIMS" => CORONA_UNEMPLOYMENT_ALL,
+                    "INSURED_UNEMPLOYMENT_RATE" => CORONA_UNEMPLOYMENT_ALL
+                ];
+    
+                // Getting the correct table to pull the data from
+                $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
+
+                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS3 = ' . $selectedIndustry . ' GROUP BY STATE ORDER BY STATE');
+            } else {
+
+                // Map telling us which table contains which column of data
+                $dropDownValuesToTableNames = [
+                    "AVG_CURRENT_AR" => CORONA_COUNTY_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_MO" => CORONA_COUNTY_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_WK" => CORONA_COUNTY_WEEKLY,
+                    "AVG_DBT" => CORONA_COUNTY_WEEKLY,
+                    "AVG_CPR" => CORONA_COUNTY_WEEKLY,
+                    "AVG_PCT_LATE" => CORONA_COUNTY_WEEKLY,
+                    "INITIAL_CLAIMS" => CORONA_UNEMPLOYMENT_ALL,
+                    "INSURED_UNEMPLOYMENT_RATE" => CORONA_UNEMPLOYMENT_ALL
+                ];
+
+                // Getting the correct table to pull the data from
+                $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
+
+                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' GROUP BY STATE ORDER BY STATE');
+            }
             
-            // You echo instead of returning (Isn't WordPress PHP fun?)
+            // You echo instead of returning (Isn't WordPress & PHP fun?)
+            echo json_encode($result);
+        }
+
+        /*
+        * Hit via AJAX call from JavaScript.
+        */
+        public function get_industries() {
+            global $wpdb;
+            $result = $wpdb->get_results('SELECT * FROM NAICS_DESC WHERE NAICS > 100');
+            
             echo json_encode($result);
         }
     }
