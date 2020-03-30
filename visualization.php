@@ -51,8 +51,10 @@
             // Right now this plops the visualization at the end of the post content.
             // If you want it to show somewhere else, instead of $content .= ' you'll want to 
             // drop a <div> into the post with a specific classname and append this to the classname.
+
+            // add back in if we want tooltip: </div>
             if ( $post->post_name == 'test' ) {
-                $content .= '<div class="dropdown"></div><div class="naics-dropdown"></div><div class="visualization"></div><div id="tooltip-container"></div>';
+                $content .= '<div class="outer-container"><div class="visualization"></div><div class="inner-container"><div class="dropdown"></div><div class="naics-dropdown"></div></div><div id="tooltip-container"></div></div>';
             }
             return $content;
         }
@@ -105,8 +107,14 @@
 
             // Lets us hit the WordPress database
             global $wpdb;
-            // 0 is a dummy value for the NAICS placeholder text
-            if ($selectedNaicsValue == null || $selectedNaicsValue == 0) {
+
+            if ($selectedDropDownValue === "INITIAL_CLAIMS" || $selectedDropDownValue === "INSURED_UNEMPLOYMENT_RATE") {
+
+                // These two don't have NAICS-specific info
+                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $CORONA_UNEMPLOYMENT_ALL . ' GROUP BY STATE ORDER BY STATE');
+            
+            } else if ($selectedNaicsValue == null || $selectedNaicsValue == 0) {
+                // 0 is a dummy value for the NAICS placeholder text
 
                 // Map telling us which table contains which column of data
                 $dropDownValuesToTableNames = [
@@ -115,9 +123,7 @@
                     "AVG_CURRENT_AR_DELTA_WK" => $CORONA_COUNTY_WEEKLY,
                     "AVG_DBT" => $CORONA_COUNTY_WEEKLY,
                     "AVG_CPR" => $CORONA_COUNTY_WEEKLY,
-                    "AVG_PCT_LATE" => $CORONA_COUNTY_WEEKLY,
-                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
-                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
+                    "AVG_PCT_LATE" => $CORONA_COUNTY_WEEKLY
                 ];
 
                 // Getting the correct table to pull the data from
@@ -126,6 +132,7 @@
                 $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' GROUP BY STATE ORDER BY STATE');
 
             } else if ($isNaics2) {
+
                 // Map telling us which table contains which column of data
                 $dropDownValuesToTableNames = [
                     "AVG_CURRENT_AR" => $CORONA_NAICS2_WEEKLY,
@@ -133,15 +140,15 @@
                     "AVG_CURRENT_AR_DELTA_WK" => $CORONA_NAICS2_WEEKLY,
                     "AVG_DBT" => $CORONA_NAICS2_WEEKLY,
                     "AVG_CPR" => $CORONA_NAICS2_WEEKLY,
-                    "AVG_PCT_LATE" => $CORONA_NAICS2_WEEKLY,
-                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
-                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
+                    "AVG_PCT_LATE" => $CORONA_NAICS2_WEEKLY
                 ];
                 // Getting the correct table to pull the data from
                 $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
 
                 $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS2 = ' . $selectedNaicsValue . ' GROUP BY STATE ORDER BY STATE');
+            
             } else {
+                
                 // Map telling us which table contains which column of data
                 $dropDownValuesToTableNames = [
                     "AVG_CURRENT_AR" => $CORONA_NAICS3_WEEKLY,
@@ -149,15 +156,14 @@
                     "AVG_CURRENT_AR_DELTA_WK" => $CORONA_NAICS3_WEEKLY,
                     "AVG_DBT" => $CORONA_NAICS3_WEEKLY,
                     "AVG_CPR" => $CORONA_NAICS3_WEEKLY,
-                    "AVG_PCT_LATE" => $CORONA_NAICS3_WEEKLY,
-                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
-                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
+                    "AVG_PCT_LATE" => $CORONA_NAICS3_WEEKLY
                 ];
     
                 // Getting the correct table to pull the data from
                 $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
 
                 $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS3 = ' . $selectedNaicsValue . ' GROUP BY STATE ORDER BY STATE');
+           
             }
             
             // You echo instead of returning (Isn't WordPress & PHP fun?)

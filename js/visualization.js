@@ -259,55 +259,60 @@ function setVisualizationData(responseData, jsonUnitedStatesCoordinates, path) {
             
             tooltipContainer.html(html);
 
-            var innerSvg = d3.select("#tooltip-container")
-                .append("svg")
-                .attr("width", 1500)
-                .attr("height", 1500);
+            // Below is work to get the counties showing in a tooltip per state.
+            //
+            // var innerSvg = d3.select("#tooltip-container")
+            //     .append("svg")
+            //     .attr("width", 1500)
+            //     .attr("height", 1500);
 
-            d3.json(`/wp-content/plugins/visualization/json/${d.info.STATE.toLowerCase()}-counties.json`, function(error, countiesJson) {
+            // d3.json(`/wp-content/plugins/visualization/json/${d.info.STATE.toLowerCase()}-counties.json`, function(error, countiesJson) {
                     
-                // var projection = d3.geo.mercator();
-                // var geoPath = d3.geo.path().projection(projection);
-                // innerSvg.append("g")
-                //     .selectAll("path")
-                //     .data(countiesJson.features)
-                //     .enter()
-                //     .append("path")
-                //     .attr("style", "fill: rgb(18, 89, 55)")
-                //     .attr("d", geoPath)
+            //     // var projection = d3.geo.mercator();
+            //     // var geoPath = d3.geo.path().projection(projection);
+            //     // innerSvg.append("g")
+            //     //     .selectAll("path")
+            //     //     .data(countiesJson.features)
+            //     //     .enter()
+            //     //     .append("path")
+            //     //     .attr("style", "fill: rgb(18, 89, 55)")
+            //     //     .attr("d", geoPath)
 
-                var group = innerSvg.selectAll("g")
-                    .data(countiesJson.features)
-                    .enter()
-                    .append("g")
-                    .attr("transform", "translate(-2000, -800), scale(8)")
+            //     var group = innerSvg.selectAll("g")
+            //         .data(countiesJson.features)
+            //         .enter()
+            //         .append("g")
+            //         .attr("transform", "translate(-2000, -800), scale(8)")
 
-                var projection = d3.geo.mercator();
+            //     var projection = d3.geo.mercator();
 
-                var path = d3.geo.path().projection(projection);
+            //     var path = d3.geo.path().projection(projection);
                 
-                var areas = group.append("path")
-                    .attr("d", path) //data comes from path generator
-                    .attr("class", "area") //CSS
-                    .attr("fill", "steelblue")
+            //     var areas = group.append("path")
+            //         .attr("d", path) //data comes from path generator
+            //         .attr("class", "area") //CSS
+            //         .attr("fill", "steelblue")
 
 
-            });
-            tooltipContainer.show();
-                        
-            var map_width = jQuery('.visualization')[0].getBoundingClientRect().width;
+            // });
+
+            // ----------------------------------------
             
-            // Below is for tooltip positioning. Also need position: absolute in the css on the tooltip-container
-            // if (d3.event.layerX < map_width / 2) {
-            //   d3.select("#tooltip-container")
-            //     .style("top", (d3.event.layerY + 15) + "px")
-            //     .style("left", (d3.event.layerX + 15) + "px");
-            // } else {
-            //   var tooltip_width = tooltipContainer.width();
-            //   d3.select("#tooltip-container")
-            //     .style("top", (d3.event.layerY + 15) + "px")
-            //     .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
-            // }
+            // Below is for tooltip positioning. 
+            // Also need 'position: absolute' in the css on the tooltip-container for this to work.
+            tooltipContainer.show();
+            var map_width = jQuery('.visualization')[0].getBoundingClientRect().width;
+
+            if (d3.event.layerX < map_width / 2) {
+              d3.select("#tooltip-container")
+                .style("top", (d3.event.layerY + 15) + "px")
+                .style("left", (d3.event.layerX + 15) + "px");
+            } else {
+              var tooltip_width = tooltipContainer.width();
+              d3.select("#tooltip-container")
+                .style("top", (d3.event.layerY + 15) + "px")
+                .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
+            }
         })
         .on("mouseout", function() {
             var sel = d3.select(this);

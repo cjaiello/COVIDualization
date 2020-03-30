@@ -23,7 +23,17 @@ path {
     width: 50%;
 }
 
+.visualization {
+  float: left;
+}
+
+.inner-container {
+    float: right;
+    padding-top: 24px;
+}
+
 #tooltip-container {
+  position: absolute;
   background-color: #e5e5e5;
   color: #000000;
   padding: 10px;
