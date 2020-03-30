@@ -94,51 +94,70 @@
         */
         public function get_states() {
             $selectedDropDownValue = $_POST['selectedDropDownValue'];
-            $selectedIndustry = $_POST['selectedIndustry'];
+            $selectedNaicsValue = $_POST['selectedNaicsValue'];
 
             // Table names
             $CORONA_COUNTY_WEEKLY = "CORONA_COUNTY_WEEKLY";
             $CORONA_UNEMPLOYMENT_ALL = "CORONA_UNEMPLOYMENT_ALL";
             $CORONA_NAICS3_WEEKLY = "CORONA_NAICS3_WEEKLY";
+            $CORONA_NAICS2_WEEKLY = "CORONA_NAICS2_WEEKLY";
+            $isNaics2 = $selectedNaicsValue < 100 && $selectedNaicsValue > 0;
 
             // Lets us hit the WordPress database
             global $wpdb;
-            if ($selectedIndustry != null) {
+            // 0 is a dummy value for the NAICS placeholder text
+            if ($selectedNaicsValue == null || $selectedNaicsValue == 0) {
 
                 // Map telling us which table contains which column of data
                 $dropDownValuesToTableNames = [
-                    "AVG_CURRENT_AR" => CORONA_NAICS3_WEEKLY,
-                    "AVG_CURRENT_AR_DELTA_MO" => CORONA_NAICS3_WEEKLY,
-                    "AVG_CURRENT_AR_DELTA_WK" => CORONA_NAICS3_WEEKLY,
-                    "AVG_DBT" => CORONA_NAICS3_WEEKLY,
-                    "AVG_CPR" => CORONA_NAICS3_WEEKLY,
-                    "AVG_PCT_LATE" => CORONA_NAICS3_WEEKLY,
-                    "INITIAL_CLAIMS" => CORONA_UNEMPLOYMENT_ALL,
-                    "INSURED_UNEMPLOYMENT_RATE" => CORONA_UNEMPLOYMENT_ALL
-                ];
-    
-                // Getting the correct table to pull the data from
-                $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
-
-                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS3 = ' . $selectedIndustry . ' GROUP BY STATE ORDER BY STATE');
-            } else {
-
-                // Map telling us which table contains which column of data
-                $dropDownValuesToTableNames = [
-                    "AVG_CURRENT_AR" => CORONA_COUNTY_WEEKLY,
-                    "AVG_CURRENT_AR_DELTA_MO" => CORONA_COUNTY_WEEKLY,
-                    "AVG_CURRENT_AR_DELTA_WK" => CORONA_COUNTY_WEEKLY,
-                    "AVG_DBT" => CORONA_COUNTY_WEEKLY,
-                    "AVG_CPR" => CORONA_COUNTY_WEEKLY,
-                    "AVG_PCT_LATE" => CORONA_COUNTY_WEEKLY,
-                    "INITIAL_CLAIMS" => CORONA_UNEMPLOYMENT_ALL,
-                    "INSURED_UNEMPLOYMENT_RATE" => CORONA_UNEMPLOYMENT_ALL
+                    "AVG_CURRENT_AR" => $CORONA_COUNTY_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_MO" => $CORONA_COUNTY_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_WK" => $CORONA_COUNTY_WEEKLY,
+                    "AVG_DBT" => $CORONA_COUNTY_WEEKLY,
+                    "AVG_CPR" => $CORONA_COUNTY_WEEKLY,
+                    "AVG_PCT_LATE" => $CORONA_COUNTY_WEEKLY,
+                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
+                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
                 ];
 
                 // Getting the correct table to pull the data from
                 $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
 
                 $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' GROUP BY STATE ORDER BY STATE');
+
+            } else if ($isNaics2) {
+                // Map telling us which table contains which column of data
+                $dropDownValuesToTableNames = [
+                    "AVG_CURRENT_AR" => $CORONA_NAICS2_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_MO" => $CORONA_NAICS2_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_WK" => $CORONA_NAICS2_WEEKLY,
+                    "AVG_DBT" => $CORONA_NAICS2_WEEKLY,
+                    "AVG_CPR" => $CORONA_NAICS2_WEEKLY,
+                    "AVG_PCT_LATE" => $CORONA_NAICS2_WEEKLY,
+                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
+                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
+                ];
+                // Getting the correct table to pull the data from
+                $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
+
+                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS2 = ' . $selectedNaicsValue . ' GROUP BY STATE ORDER BY STATE');
+            } else {
+                // Map telling us which table contains which column of data
+                $dropDownValuesToTableNames = [
+                    "AVG_CURRENT_AR" => $CORONA_NAICS3_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_MO" => $CORONA_NAICS3_WEEKLY,
+                    "AVG_CURRENT_AR_DELTA_WK" => $CORONA_NAICS3_WEEKLY,
+                    "AVG_DBT" => $CORONA_NAICS3_WEEKLY,
+                    "AVG_CPR" => $CORONA_NAICS3_WEEKLY,
+                    "AVG_PCT_LATE" => $CORONA_NAICS3_WEEKLY,
+                    "INITIAL_CLAIMS" => $CORONA_UNEMPLOYMENT_ALL,
+                    "INSURED_UNEMPLOYMENT_RATE" => $CORONA_UNEMPLOYMENT_ALL
+                ];
+    
+                // Getting the correct table to pull the data from
+                $tableContainingSelectedDropDownValue = $dropDownValuesToTableNames[$selectedDropDownValue];
+
+                $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $tableContainingSelectedDropDownValue . ' WHERE NAICS3 = ' . $selectedNaicsValue . ' GROUP BY STATE ORDER BY STATE');
             }
             
             // You echo instead of returning (Isn't WordPress & PHP fun?)
@@ -150,7 +169,7 @@
         */
         public function get_industries() {
             global $wpdb;
-            $result = $wpdb->get_results('SELECT * FROM NAICS_DESC WHERE NAICS > 100');
+            $result = $wpdb->get_results('SELECT * FROM NAICS_DESC');
             
             echo json_encode($result);
         }

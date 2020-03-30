@@ -39,7 +39,7 @@ jQuery(document).ready( function() {
             if (error) throw error;
         
             var path = d3.geo.path();
-            getNAICS(jsonUnitedStatesCoordinates, path);
+            getNaicsValues(jsonUnitedStatesCoordinates, path);
           
             // This makes the initial map
             svg.append("path")
@@ -55,7 +55,7 @@ jQuery(document).ready( function() {
                     var selectedIndexInt = eval(d3.select(this).property("selectedIndex"));
                     var selectedIndexObj = dropDown.property("options")[selectedIndexInt];
                     var dataDropDownValue = selectedIndexObj.value;
-                    var naicsDropDownValue = jQuery("#tooltip-container").val() || null;
+                    var naicsDropDownValue = jQuery(".naics-dropdown option:selected").val();
                     getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownValue, path);
                 });
             var options = dropDown.selectAll("option")
@@ -104,7 +104,7 @@ function getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownVa
         data : {
             action : "get_state_data",
             selectedDropDownValue : dataDropDownValue,
-            selectedIndustry : naicsDropDownValue
+            selectedNaicsValue : naicsDropDownValue
         },
         success : function( response ) {
             var cleanedUpResponse = response.replace("Array","").replace("\"}]0","\"}]");
@@ -117,9 +117,10 @@ function getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownVa
 }
 
 /*
+* Used for initial setup of the dropdown.
 * Puts together an AJAX request to get the data, calls the API
 */
-function getNAICS(jsonUnitedStatesCoordinates, path) {
+function getNaicsValues(jsonUnitedStatesCoordinates, path) {
     jQuery.ajax({
         url : getNAICS_ajax.ajax_url,
         type : "get",
@@ -134,7 +135,7 @@ function getNAICS(jsonUnitedStatesCoordinates, path) {
                 NAICS_TYPE: null,
                 NAICS_DESC: "Industry selection (choose one)"
             }];
-            setNAICSData(defaultValue.concat(naicsParsed), jsonUnitedStatesCoordinates, path);
+            setNaicsDropDownData(defaultValue.concat(naicsParsed), jsonUnitedStatesCoordinates, path);
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { 
             // TODO
@@ -142,14 +143,14 @@ function getNAICS(jsonUnitedStatesCoordinates, path) {
     });
 }
 
-function setNAICSData(naicsData, jsonUnitedStatesCoordinates, path) {
+function setNaicsDropDownData(naicsData, jsonUnitedStatesCoordinates, path) {
     var dropDown = d3.select(".naics-dropdown")
         .append("select")
         .attr("class", "parameters")
         .on("change", function() {
             var selectedIndexInt = eval(d3.select(this).property("selectedIndex"));
             var selectedIndexObj = dropDown.property("options")[selectedIndexInt];
-            var naicsDropDownValue = selectedIndexObj.value != 0 ? selectedIndexObj.value : null;
+            var naicsDropDownValue = selectedIndexObj.value;
             var dataDropDownValue = jQuery(".dropdown option:selected").val();
             getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownValue, path);
         });
