@@ -29,8 +29,12 @@
             add_action( 'plugins_loaded', array( $this, 'register_rml' ) );
             add_action( 'plugins_loaded', array( $this, 'enqueue_rml_scripts' ) );
             add_action( 'plugins_loaded', array( $this, 'enqueue_rml_styles' ) );
-            add_action( 'wp_ajax_nopriv_get_state_data', array( $this, 'get_states' ) );
-            add_action( 'wp_ajax_nopriv_get_industry_data', array( $this, 'get_industries' ) );
+
+            // When making an AJAX request, the 'action' is the second half of this action name below.
+            // action : "get_data_from_database"
+            add_action( 'wp_ajax_nopriv_get_data_from_database', array( $this, 'getData' ) );
+            add_action( 'wp_ajax_nopriv_get_industry_list', array( $this, 'getIndustryList' ) );
+
             add_filter( 'the_content', array( $this, 'display_visualization') );
         }  
         
@@ -94,7 +98,7 @@
         * There isn't actual input to the function, but you can hit 
         * $_POST[KEY OF VALUE PASSED OVER HERE] in the function to get info from the POST
         */
-        public function get_states() {
+        public function getData() {
             $selectedDropDownValue = $_POST['selectedDropDownValue'];
             $selectedNaicsValue = $_POST['selectedNaicsValue'];
 
@@ -108,13 +112,11 @@
             // Lets us hit the WordPress database
             global $wpdb;
 
-            if ($selectedDropDownValue === "INITIAL_CLAIMS" || $selectedDropDownValue === "INSURED_UNEMPLOYMENT_RATE") {
+            if ($selectedDropDownValue === "INITIAL_CLAIMS" || $selectedDropDownValue === "INSURED_UNEMPLOYMENT_RATE") { // These two don't have NAICS-specific info
 
-                // These two don't have NAICS-specific info
                 $result = $wpdb->get_results('SELECT STATE, AVG(' . $selectedDropDownValue . ') AS STATE_AVG FROM ' . $CORONA_UNEMPLOYMENT_ALL . ' GROUP BY STATE ORDER BY STATE');
             
-            } else if ($selectedNaicsValue == null || $selectedNaicsValue == 0) {
-                // 0 is a dummy value for the NAICS placeholder text
+            } else if ($selectedNaicsValue == null || $selectedNaicsValue == 0) { // This is when you request non-industry-specific data. 0 is a dummy value associated with the placeholder for that dropdown.
 
                 // Map telling us which table contains which column of data
                 $dropDownValuesToTableNames = [
@@ -173,10 +175,11 @@
         /*
         * Hit via AJAX call from JavaScript.
         */
-        public function get_industries() {
+        public function getIndustryList() {
             global $wpdb;
             $result = $wpdb->get_results('SELECT * FROM NAICS_DESC');
             
+            // You echo instead of returning (Isn't WordPress & PHP fun?)
             echo json_encode($result);
         }
     }

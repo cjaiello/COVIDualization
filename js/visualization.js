@@ -102,7 +102,7 @@ function getData(jsonUnitedStatesCoordinates, dataDropDownValue, naicsDropDownVa
         url : getstates_ajax.ajax_url,
         type : "post",
         data : {
-            action : "get_state_data",
+            action : "get_data_from_database",
             selectedDropDownValue : dataDropDownValue,
             selectedNaicsValue : naicsDropDownValue
         },
@@ -125,17 +125,17 @@ function getNaicsValues(jsonUnitedStatesCoordinates, path) {
         url : getNAICS_ajax.ajax_url,
         type : "get",
         data : {
-            action : "get_industry_data"
+            action : "get_industry_list"
         },
         success : function( response ) {
             var naics = response.replace("Array","").replace("\"}]0","\"}]");
             var naicsParsed = JSON.parse(naics);
-            var defaultValue = [{
-                NAICS: 0, // Dummy value
+            var placeholderValue = [{
+                NAICS: 0, // Dummy value used with the placeholder for the industry dropdown
                 NAICS_TYPE: null,
                 NAICS_DESC: "Industry selection (choose one)"
             }];
-            setNaicsDropDownData(defaultValue.concat(naicsParsed), jsonUnitedStatesCoordinates, path);
+            setNaicsDropDownData(placeholderValue.concat(naicsParsed), jsonUnitedStatesCoordinates, path);
         },
         error: function(XMLHttpRequest, textStatus, errorThrown) { 
             // TODO
@@ -143,6 +143,7 @@ function getNaicsValues(jsonUnitedStatesCoordinates, path) {
     });
 }
 
+// Used to initially populate the industry dropdown
 function setNaicsDropDownData(naicsData, jsonUnitedStatesCoordinates, path) {
     var dropDown = d3.select(".naics-dropdown")
         .append("select")
@@ -159,12 +160,16 @@ function setNaicsDropDownData(naicsData, jsonUnitedStatesCoordinates, path) {
         .enter()
         .append("option");
         options.text(function(d) {
+            // This is the text that shows up for each dropdown option
             if (d.NAICS) {
+                // Industries with actual numbers
                 return `${d.NAICS} - ${d.NAICS_DESC}`;
             } else {
+                // Placeholder case
                 return `${d.NAICS_DESC}`;
             }
         })
+        // This is the underlying value associated with each dropdown option
         options.attr("value", function(d) {
             return d.NAICS;
         })
@@ -207,9 +212,13 @@ function setVisualizationData(responseData, jsonUnitedStatesCoordinates, path) {
     var largestValueInDataSet = 0;
     var all_states = topojson.feature(jsonUnitedStatesCoordinates, jsonUnitedStatesCoordinates.objects.states).features;
     all_states.forEach(function(d){
+        // name is actual name
+        // code is two-letter abbreviation for state
+        // id is the integer id for the state
         var stateCode = idsToCodes[d.id];
         d.info = stateCodesToData[stateCode]
         d.name = codesToNames[stateCode]
+
         // Need to do this this way instead of just sorting the DB query by descending value
         // and picking the first item's value because of the extra, non-US data in the set.
         // Inside this foreach, we're only looking at US states.
@@ -253,9 +262,7 @@ function setVisualizationData(responseData, jsonUnitedStatesCoordinates, path) {
 
             var html = `<div class=\"tooltip_kv\"><span class=\"tooltip_key\">${d.name}</span><span class=\"tooltip_value\"> ${d.info.STATE_AVG} </span></div>`;
 
-            var tooltipContainer = jQuery("#tooltip-container")
-            .attr("width", 400)
-            .attr("height", 400);
+            var tooltipContainer = jQuery("#tooltip-container");
             
             tooltipContainer.html(html);
 
@@ -302,7 +309,6 @@ function setVisualizationData(responseData, jsonUnitedStatesCoordinates, path) {
             // Also need 'position: absolute' in the css on the tooltip-container for this to work.
             tooltipContainer.show();
             var map_width = jQuery('.visualization')[0].getBoundingClientRect().width;
-
             if (d3.event.layerX < map_width / 2) {
               d3.select("#tooltip-container")
                 .style("top", (d3.event.layerY + 15) + "px")
