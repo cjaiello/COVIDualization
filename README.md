@@ -3,6 +3,6 @@ PHP + JavaScript plugin for WordPress to create a d3 United States state visuali
 
 Christina Aiello, 2020, protected under MIT License.
 
-Created hackathon-style, 30 days spread over five days, with the final two days containing 24hrs of work total.
+Created hackathon-style, 30 days spread over five days, with the final two days containing 24hrs of work total. The script was then handed off to other developers to fully flesh-out. I was just providing a starting point for them.
 
 ![Visualization demo](https://github.com/cjaiello/COVIDualization/blob/master/visualization.gif)
